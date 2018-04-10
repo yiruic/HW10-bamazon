@@ -1,0 +1,24 @@
+{
+  "name": "hw10-bamazon",
+  "version": "1.0.0",
+  "description": "In this activity, you'll be creating an Amazon-like storefront with the MySQL skills you learned this week. The app will take in orders from customers and deplete stock from the store's inventory. Make sure you save and require the MySQL and Inquirer npm packages in your homework files--your app will need them for data input and storage.",
+  "main": "bamazonCustomer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yiruic/HW12.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yiruic/HW12/issues"
+  },
+  "homepage": "https://github.com/yiruic/HW12#readme",
+  "dependencies": {
+    "console.table": "^0.10.0",
+    "inquirer": "^5.2.0",
+    "mysql": "^2.15.0"
+  }
+}

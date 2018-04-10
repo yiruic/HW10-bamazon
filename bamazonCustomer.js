@@ -1,7 +1,8 @@
 var inquirer = require("inquirer");
-// var chalk = require("chalk");
 var mysql = require("mysql");
+require("console.table");
 
+// Initializes the connection
 var connection = mysql.createConnection({
     host: "localhost",
     port: 3306,
@@ -10,116 +11,121 @@ var connection = mysql.createConnection({
     database: "bamazon"
 });
 
-// connecting to "bamazon" database and prompt customer choices.
+// Creates the connection with the server
+//and loads the product data upon a successful connection
 connection.connect(function(err) {
     if (err) throw err;
-    // console.log(chalk.bold.magenta("******* Welcome to BAMAZON *******"));
-    customerChoice();
+    loadProducts();
 });
 
-var customerChoice = function() {
-
-    // Select all details of products from the database
-    var query = "SELECT * FROM products";
-
-    connection.query(query, function(err, res) {
-
-        inquirer.prompt({
-            type: "list",
-            name: "productList",
-            message: "What do you like to buy?",
-
-            // List the product names
-            choices: function(data) {
-                var productArray = [];
-                for (var i = 0; i < res.length; i++) {
-                    productArray.push(res[i].product_name);
-                }
-                return productArray;
-            };
-
-        }).then(function(item) {
-
-                // Get the selected product and prompt field to input quatity for customer.
-                for (var i = 0; i < res.length; i++) {
-                    if (res[i].product_name === item.productList) {
-                        var chosenProduct = res[i];
-                        inquirer.prompt({
-                            type: "input",
-                            name: "quantity",
-                            message: "Price is: $" + chosenProduct.price + "\nHow many of them would you like to buy?",
-                            validate: function(value) {
-                                if (isNaN(value) === false && value !== 0 && value.length > 0) {
-                                    return true;
-                                }
-                                return false;
-                            }
-                        }).then(function(count) {
-
-                            // // If customer demand is more than stock item quantity throw message.
-                            // if (chosenProduct.stock_quantity < parseInt(count.quantity)) {
-                            //     console.log(chalk.red("Sorry, We only have " +
-                            //         chosenProduct.stock_quantity + " " +
-                            //         chosenProduct.product_name + "(s)"));
-                            //     customerChoice();
-                            // If stock available calculate total.
-                            // } else {
-                            var total = parseInt(count.quantity) * chosenProduct.price;
-                            console.log("You bought " +
-                                parseInt(count.quantity) + " " +
-                                chosenProduct.product_name + "(s) " +
-                                // chalk.green("Your total is: $" + total));
-
-                            // // Upadate products table, Show next options.
-                            // connection.query("UPDATE products SET ? WHERE ?", [{
-                            //     stock_quantity: chosenProduct.stock_quantity - parseInt(count.quantity),
-                            //     product_sales: chosenProduct.product_sales + parseInt(total)
-                            // }, {
-                            //     item_id: chosenProduct.item_id
-                            // }], function(err, res) {
-                            //     if (err) {
-                            //         console.log("DB error");
-                            //     }
-                            //     nextTask();
-                            // });
-// Upadate total_sales in departments table according to the product sale by department.                            
-                            connection.query("SELECT * from departments", function(error, result) {
-                                for (var i = 0; i < result.length; i++) {
-                                    if (result[i].department_name === chosenProduct.department_name) {
-                                        var department = result[i];
-                                        connection.query("UPDATE departments SET ? WHERE ?", [{
-                                            total_sales: department.total_sales + parseInt(total)
-                                        }, {
-                                            department_id: department.department_id
-                                        }], function(err, res) {
-                                            if (err) {
-                                                console.log("DB error");
-                                            }
-                                        });
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-        });
-    };
+// Function to load the products table from the database
+// and print results to the console
+var loadProducts = function() {
+  // Select all data from the database
+  var query = "SELECT * FROM products";
+  connection.query(query, function(err, res) {
+    if (err) throw err;
+    // Draw the table in the terminal using the response
+    console.table(res);
+    // Then prompt the customer for their choice of product
+    //pass all the products to promptCustomerForItem
+    promptCustomerForItem(res);
+  });
 };
 
-// Promt for continue shopping or Quit.
-var nextTask = function() {
-    inquirer.prompt({
-        type: "list",
-        name: "nextChoice",
-        message: "What would you like to do?",
-        choices: ["Buy stuff again!!!", "Quit"]
-    }).then(function(answer) {
-        if (answer.nextChoice === "Quit") {
-            console.log(chalk.bold.blue("******* Thank you for shopping in BAMAZON *******"));
-            connection.end(function(err) {});
-        } else {
-            customerChoice();
+// Prompt the customer for a product
+function promptCustomerForItem(inventory) {
+  // Prompts user for what they would like to purchase
+    inquirer
+    .prompt({
+      type: "input",
+      name: "choice",
+      message: "What do you like to buy? [Quit with Q]",
+      //validate input
+      validate: function(val) {
+        return !isNaN(val) || val.toLowerCase() === "q";
+      }
+    }).then(function(val) {
+    // fulfillment: key q is pressed
+    // Check if the user wants to quit the program
+    checkIfShouldExit(val.choice);
+    var choiceName = parseInt(val.choice);
+    var product = checkInventory(choiceName, inventory);
+
+    // If there is a product with the name the user chose, prompt the customer for a desired quantity
+    if (product) {
+      // Pass the chosen product to promptCustomerForQuantity
+      promptCustomerForQuantity(product);
+    }
+    else {
+      // Otherwise let them know the item is not in the inventory, re-run loadProducts
+      console.log("\nThat item is not in the inventory.");
+      loadProducts();
+    }
+  });
+};
+
+// Prompt the customer for a product quantity
+function promptCustomerForQuantity(product) {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "quantity",
+        message: "How many would you like? [Quit with Q]",
+        validate: function(val) {
+          return val > 0 || val.toLowerCase() === "q";
         }
+      }
+    ])
+    .then(function(val) {
+      // Check if the user wants to quit the program
+      checkIfShouldExit(val.quantity);
+      var quantity = parseInt(val.quantity);
+
+      // If there isn't enough of the chosen product and quantity, let the user know and re-run loadProducts
+      if (quantity > product.stock_quantity) {
+        console.log("\nInsufficient quantity!");
+        loadProducts();
+      }
+      else {
+        // Otherwise run makePurchase, give it the product information and desired quantity to purchase
+        makePurchase(product, quantity);
+      }
     });
+};
+
+
+// Purchase the desired quanity of the desired item
+function makePurchase(product, quantity) {
+  connection.query(
+    "UPDATE products SET stock_quantity = stock_quantity - ? WHERE item_id = ?",
+    [quantity, product.item_id],
+    function(err, res) {
+      // Let the user know the purchase was successful, re-run loadProducts
+      console.log("\nSuccessfully purchased " + quantity + " " + product.product_name + "'s!");
+      loadProducts();
+    }
+  );
+};
+
+// Check to see if the product the user chose exists in the inventory
+function checkInventory(choiceName, inventory) {
+  for (var i = 0; i < inventory.length; i++) {
+    if (inventory[i].product_name === choiceName) {
+      // If a matching product is found, return the product
+      return inventory[i];
+    }
+  }
+  // Otherwise return null
+  return null;
+};
+
+// Check to see if the user wants to quit the program
+function checkIfShouldExit(choice) {
+  if (choice.toLowerCase() === "q") {
+    // Log a message and exit the current node process
+    console.log("Goodbye!");
+    process.exit(0);
+  }
 };
