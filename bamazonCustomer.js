@@ -43,15 +43,16 @@ function promptCustomerForItem(inventory) {
       message: "What do you like to buy? [Quit with Q]",
       //validate input
       validate: function(val) {
-        return !isNaN(val) || val.toLowerCase() === "q";
+        return isNaN(val) || val.toLowerCase() === "q";
       }
     }).then(function(val) {
     // fulfillment: key q is pressed
     // Check if the user wants to quit the program
-    checkIfShouldExit(val.choice);
-    var choiceName = parseInt(val.choice);
+    var choiceName = val.choice;
+    checkIfShouldExit(choiceName);
     var product = checkInventory(choiceName, inventory);
 
+    console.log(product)
     // If there is a product with the name the user chose, prompt the customer for a desired quantity
     if (product) {
       // Pass the chosen product to promptCustomerForQuantity
